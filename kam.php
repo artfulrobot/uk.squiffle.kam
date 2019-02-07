@@ -11,12 +11,6 @@ require_once 'kam.civix.php';
 function kam_civicrm_coreResourceList(&$list, $region) {
   $config = CRM_Core_Config::singleton();
 
-  // Don't load default navigation css and menu
-  $cssWeDontWant = array_search('css/civicrmNavigation.css', $list);
-  if ($cssWeDontWant !== FALSE) {
-    unset($list[$cssWeDontWant]);
-  }
-
   //check if logged in user has access CiviCRM permission and build menu
   $buildNavigation = !CRM_Core_Config::isUpgradeMode() && CRM_Core_Permission::check('access CiviCRM');
   if (!$buildNavigation || $config->userFrameworkFrontend) {
@@ -27,7 +21,6 @@ function kam_civicrm_coreResourceList(&$list, $region) {
     $contactID = CRM_Core_Session::getLoggedInContactID();
     $position = Civi::settings()->get('menubar_position');
     if ($contactID && $position !== 'none' && !defined('CIVICRM_DISABLE_DEFAULT_MENU')) {
-      define('CIVICRM_DISABLE_DEFAULT_MENU', TRUE);
       $cms = strtolower(CRM_Core_Config::singleton()->userFramework);
       $cms = $cms === 'drupal' ? 'drupal7' : $cms;
       $path = 'packages/smartmenus-1.1.0/';
@@ -38,12 +31,24 @@ function kam_civicrm_coreResourceList(&$list, $region) {
         ->addScriptFile('uk.squiffle.kam', $path . 'addons/keyboard/jquery.smartmenus.keyboard.js', -98, 'html-header')
         ->addScriptFile('uk.squiffle.kam', 'js/crm.menubar.js', -97, 'html-header');
       $list[] = [
-        'config' => ['locale' => CRM_Core_I18n::getLocale()],
+        'config' => [
+          'locale' => CRM_Core_I18n::getLocale(),
+          'cid' => $contactID,
+        ],
         'menubar' => [
-          'position' => $position,
+          // FIXME: Providing the default explicitly should not be necessary but sometimes the 'menubar_position' setting seems to disappear
+          'position' => $position ?: 'over-cms-menu',
           'qfKey' => CRM_Core_Key::get('CRM_Contact_Controller_Search', TRUE),
         ],
       ];
+    }
+    if (!defined('CIVICRM_DISABLE_DEFAULT_MENU')) {
+      define('CIVICRM_DISABLE_DEFAULT_MENU', TRUE);
+      // Don't load default navigation css and menu
+      $cssWeDontWant = array_search('css/civicrmNavigation.css', $list);
+      if ($cssWeDontWant !== FALSE) {
+        unset($list[$cssWeDontWant]);
+      }
     }
   }
 }
@@ -54,10 +59,10 @@ function kam_civicrm_coreResourceList(&$list, $region) {
 function kam_civicrm_alterContent(&$content, $context, $tplName, &$object) {
   $region = CRM_Core_Region::instance('html-header');
   $resources = Civi::resources();
-  // Remove backdrop.js file
+  // Override backdrop.js file
   $backdropJs = $region->get($resources->getUrl('civicrm', 'js/crm.backdrop.js', TRUE));
   if ($backdropJs) {
-    $override = ['scriptUrl' => NULL];
+    $override = ['scriptUrl' => $resources->getUrl('uk.squiffle.kam', 'js/crm.backdrop.js', TRUE)];
     $region->update($backdropJs['name'], $override);
   }
   // Override drupal7.js file

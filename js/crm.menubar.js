@@ -11,14 +11,14 @@
     attachTo: (CRM.menubar && CRM.menubar.position === 'above-crm-container') ? '#crm-container' : 'body',
     initialize: function() {
       var cache = CRM.cache.get('menubar');
-      if (cache && cache.code === CRM.config.menuCacheCode && cache.locale === CRM.config.locale && localStorage.civiMenubar) {
+      if (cache && cache.code === CRM.config.menuCacheCode && cache.locale === CRM.config.locale && cache.cid === CRM.config.cid && localStorage.civiMenubar) {
         CRM.menubar.data = cache.data;
         insert(localStorage.civiMenubar);
       } else {
-        $.getJSON(CRM.url('civicrm/ajax/navmenu', {c: CRM.config.menuCacheCode, l: CRM.config.locale}))
+        $.getJSON(CRM.url('civicrm/ajax/navmenu', {code: CRM.config.menuCacheCode, locale: CRM.config.locale, cid: CRM.config.cid}))
           .done(function(data) {
             var markup = getTpl('tree')(data);
-            CRM.cache.set('menubar', {code: CRM.config.menuCacheCode, locale: CRM.config.locale, data: data});
+            CRM.cache.set('menubar', {code: CRM.config.menuCacheCode, locale: CRM.config.locale, cid: CRM.config.cid, data: data});
             CRM.menubar.data = data;
             localStorage.setItem('civiMenubar', markup);
             insert(markup);
@@ -50,18 +50,16 @@
         $('#civicrm-menu').trigger('crmLoad');
         $(document).ready(function() {
           handleResize();
-          $('#civicrm-menu a').not('a[href="#"]').not('a[href="#hidemenu"]')
-          .on('click', function(e) {
-            if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) {
-              // Prevent menu closing when link is clicked with a keyboard modifier.
-              e.stopPropagation();
-            }
-          });
           $('#civicrm-menu')
             .on('click', 'a[href="#"]', function() {
               // For empty links - keep the menu open and don't jump the page anchor
-              console.warn("stopped #");
               return false;
+            })
+            .on('click', 'a:not([href^="#"])', function(e) {
+              if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) {
+                // Prevent menu closing when link is clicked with a keyboard modifier.
+                e.stopPropagation();
+              }
             })
             .on('click', 'a[href="#hidemenu"]', function(e) {
               e.preventDefault();
@@ -69,7 +67,6 @@
             })
             .on('keyup', 'a', function(e) {
               // Simulate a click when spacebar key is pressed
-              console.warn("clicking ");
               if (e.which == SPACE_KEY) {
                 $(e.currentTarget)[0].click();
               }
@@ -117,7 +114,6 @@
         $('#crm-restore-menu')
           .button({icons: {primary: 'fa-undo'}})
           .click(function(e) {
-            console.warn("crm-restore-menu happening");
             e.preventDefault();
             alert.close();
             CRM.menubar.show(speed);
